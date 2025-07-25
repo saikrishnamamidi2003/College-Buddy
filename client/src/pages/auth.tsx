@@ -1,29 +1,44 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { GraduationCap } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { loginSchema, registerSchema, type LoginRequest, type RegisterRequest } from "@shared/schema";
-import { useEffect } from "react";
+import { z } from "zod";
+
+const loginSchema = z.object({
+  email: z.string().email("Please enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+const registerSchema = z.object({
+  email: z.string().email("Please enter a valid email"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  branch: z.string().optional(),
+  year: z.number().int().min(1).max(5).optional(),
+});
+
+type LoginData = z.infer<typeof loginSchema>;
+type RegisterData = z.infer<typeof registerSchema>;
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
-  const { login, register, isAuthenticated } = useAuth();
+  const { user, loginMutation, registerMutation } = useAuth();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (user) {
       setLocation("/");
     }
-  }, [isAuthenticated, setLocation]);
+  }, [user, setLocation]);
 
-  const loginForm = useForm<LoginRequest>({
+  const loginForm = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",
@@ -31,7 +46,7 @@ export default function Auth() {
     },
   });
 
-  const registerForm = useForm<RegisterRequest>({
+  const registerForm = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       username: "",
@@ -43,12 +58,12 @@ export default function Auth() {
     },
   });
 
-  const onLoginSubmit = (data: LoginRequest) => {
-    login(data);
+  const onLoginSubmit = (data: LoginData) => {
+    loginMutation.mutate(data);
   };
 
-  const onRegisterSubmit = (data: RegisterRequest) => {
-    register(data);
+  const onRegisterSubmit = (data: RegisterData) => {
+    registerMutation.mutate(data);
   };
 
   return (
@@ -104,8 +119,8 @@ export default function Auth() {
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" className="w-full">
-                    Sign In
+                  <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+                    {loginMutation.isPending ? "Signing In..." : "Sign In"}
                   </Button>
                 </form>
               </Form>
@@ -199,8 +214,8 @@ export default function Auth() {
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" className="w-full">
-                    Sign Up
+                  <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
+                    {registerMutation.isPending ? "Creating Account..." : "Sign Up"}
                   </Button>
                 </form>
               </Form>

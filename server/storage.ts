@@ -1,5 +1,9 @@
-import { type User, type InsertUser, type Item, type InsertItem, type Note, type InsertNote, type Message, type InsertMessage, type Rating, type InsertRating } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { type User, type InsertUser, type Item, type InsertItem, type Note, type InsertNote, type Message, type InsertMessage, type Rating, type InsertRating, users, items, notes, messages, ratings } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, or, like, ilike } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
 
 export interface IStorage {
   // Users
@@ -40,244 +44,269 @@ export interface IStorage {
     studyNotes: number;
     activeStudents: number;
   }>;
+
+  sessionStore: session.SessionStore;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private items: Map<string, Item>;
-  private notes: Map<string, Note>;
-  private messages: Map<string, Message>;
-  private ratings: Map<string, Rating>;
+const PostgresSessionStore = connectPg(session);
+
+export class DatabaseStorage implements IStorage {
+  public sessionStore: session.SessionStore;
 
   constructor() {
-    this.users = new Map();
-    this.items = new Map();
-    this.notes = new Map();
-    this.messages = new Map();
-    this.ratings = new Map();
+    this.sessionStore = new PostgresSessionStore({ 
+      pool, 
+      createTableIfMissing: true 
+    });
   }
 
   // Users
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email);
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username);
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = {
-      ...insertUser,
-      id,
-      rating: "0",
-      ratingCount: 0,
-      createdAt: new Date(),
-    };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-    const updatedUser = { ...user, ...updates };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    const [user] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
   }
 
   // Items
   async getItem(id: string): Promise<Item | undefined> {
-    return this.items.get(id);
+    const [item] = await db.select().from(items).where(eq(items.id, id));
+    return item || undefined;
   }
 
   async getItems(filters?: { category?: string; search?: string; sellerId?: string }): Promise<Item[]> {
-    let items = Array.from(this.items.values());
+    let query = db.select().from(items);
+    
+    const conditions = [];
     
     if (filters?.category) {
-      items = items.filter(item => item.category === filters.category);
+      conditions.push(eq(items.category, filters.category));
     }
     
     if (filters?.search) {
-      const search = filters.search.toLowerCase();
-      items = items.filter(item => 
-        item.title.toLowerCase().includes(search) || 
-        item.description.toLowerCase().includes(search)
+      conditions.push(
+        or(
+          ilike(items.title, `%${filters.search}%`),
+          ilike(items.description, `%${filters.search}%`)
+        )
       );
     }
     
     if (filters?.sellerId) {
-      items = items.filter(item => item.sellerId === filters.sellerId);
+      conditions.push(eq(items.sellerId, filters.sellerId));
     }
     
-    return items.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    return await query.orderBy(items.createdAt);
   }
 
   async createItem(item: InsertItem & { sellerId: string }): Promise<Item> {
-    const id = randomUUID();
-    const newItem: Item = {
-      ...item,
-      id,
-      sold: false,
-      createdAt: new Date(),
-    };
-    this.items.set(id, newItem);
+    const [newItem] = await db
+      .insert(items)
+      .values(item)
+      .returning();
     return newItem;
   }
 
   async updateItem(id: string, updates: Partial<Item>): Promise<Item | undefined> {
-    const item = this.items.get(id);
-    if (!item) return undefined;
-    const updatedItem = { ...item, ...updates };
-    this.items.set(id, updatedItem);
-    return updatedItem;
+    const [item] = await db
+      .update(items)
+      .set(updates)
+      .where(eq(items.id, id))
+      .returning();
+    return item || undefined;
   }
 
   async deleteItem(id: string): Promise<boolean> {
-    return this.items.delete(id);
+    const result = await db.delete(items).where(eq(items.id, id));
+    return result.rowCount > 0;
   }
 
   // Notes
   async getNote(id: string): Promise<Note | undefined> {
-    return this.notes.get(id);
+    const [note] = await db.select().from(notes).where(eq(notes.id, id));
+    return note || undefined;
   }
 
   async getNotes(filters?: { subject?: string; search?: string; uploaderId?: string }): Promise<Note[]> {
-    let notes = Array.from(this.notes.values());
+    let query = db.select().from(notes);
+    
+    const conditions = [];
     
     if (filters?.subject) {
-      notes = notes.filter(note => note.subject === filters.subject);
+      conditions.push(eq(notes.subject, filters.subject));
     }
     
     if (filters?.search) {
-      const search = filters.search.toLowerCase();
-      notes = notes.filter(note => 
-        note.title.toLowerCase().includes(search) || 
-        note.description.toLowerCase().includes(search) ||
-        note.tags.some(tag => tag.toLowerCase().includes(search))
+      conditions.push(
+        or(
+          ilike(notes.title, `%${filters.search}%`),
+          ilike(notes.description, `%${filters.search}%`)
+        )
       );
     }
     
     if (filters?.uploaderId) {
-      notes = notes.filter(note => note.uploaderId === filters.uploaderId);
+      conditions.push(eq(notes.uploaderId, filters.uploaderId));
     }
     
-    return notes.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    return await query.orderBy(notes.createdAt);
   }
 
   async createNote(note: InsertNote & { uploaderId: string }): Promise<Note> {
-    const id = randomUUID();
-    const newNote: Note = {
-      ...note,
-      id,
-      downloadCount: 0,
-      rating: "0",
-      ratingCount: 0,
-      createdAt: new Date(),
-    };
-    this.notes.set(id, newNote);
+    const [newNote] = await db
+      .insert(notes)
+      .values(note)
+      .returning();
     return newNote;
   }
 
   async updateNote(id: string, updates: Partial<Note>): Promise<Note | undefined> {
-    const note = this.notes.get(id);
-    if (!note) return undefined;
-    const updatedNote = { ...note, ...updates };
-    this.notes.set(id, updatedNote);
-    return updatedNote;
+    const [note] = await db
+      .update(notes)
+      .set(updates)
+      .where(eq(notes.id, id))
+      .returning();
+    return note || undefined;
   }
 
   async deleteNote(id: string): Promise<boolean> {
-    return this.notes.delete(id);
+    const result = await db.delete(notes).where(eq(notes.id, id));
+    return result.rowCount > 0;
   }
 
   // Messages
   async getMessage(id: string): Promise<Message | undefined> {
-    return this.messages.get(id);
+    const [message] = await db.select().from(messages).where(eq(messages.id, id));
+    return message || undefined;
   }
 
   async getMessages(userId: string, otherUserId?: string): Promise<Message[]> {
-    let messages = Array.from(this.messages.values());
+    let query = db.select().from(messages);
     
     if (otherUserId) {
-      messages = messages.filter(msg => 
-        (msg.senderId === userId && msg.receiverId === otherUserId) ||
-        (msg.senderId === otherUserId && msg.receiverId === userId)
+      query = query.where(
+        or(
+          and(eq(messages.senderId, userId), eq(messages.receiverId, otherUserId)),
+          and(eq(messages.senderId, otherUserId), eq(messages.receiverId, userId))
+        )
       );
     } else {
-      messages = messages.filter(msg => msg.senderId === userId || msg.receiverId === userId);
+      query = query.where(
+        or(eq(messages.senderId, userId), eq(messages.receiverId, userId))
+      );
     }
     
-    return messages.sort((a, b) => (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0));
+    return await query.orderBy(messages.createdAt);
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
-    const id = randomUUID();
-    const newMessage: Message = {
-      ...message,
-      id,
-      read: false,
-      createdAt: new Date(),
-    };
-    this.messages.set(id, newMessage);
+    const [newMessage] = await db
+      .insert(messages)
+      .values(message)
+      .returning();
     return newMessage;
   }
 
   async markMessageAsRead(id: string): Promise<boolean> {
-    const message = this.messages.get(id);
-    if (!message) return false;
-    message.read = true;
-    this.messages.set(id, message);
-    return true;
+    const result = await db
+      .update(messages)
+      .set({ read: true })
+      .where(eq(messages.id, id));
+    return result.rowCount > 0;
   }
 
   // Ratings
   async getRating(id: string): Promise<Rating | undefined> {
-    return this.ratings.get(id);
+    const [rating] = await db.select().from(ratings).where(eq(ratings.id, id));
+    return rating || undefined;
   }
 
   async getRatings(filters: { ratedUserId?: string; itemId?: string; noteId?: string }): Promise<Rating[]> {
-    let ratings = Array.from(this.ratings.values());
+    let query = db.select().from(ratings);
+    
+    const conditions = [];
     
     if (filters.ratedUserId) {
-      ratings = ratings.filter(rating => rating.ratedUserId === filters.ratedUserId);
+      conditions.push(eq(ratings.ratedUserId, filters.ratedUserId));
     }
     
     if (filters.itemId) {
-      ratings = ratings.filter(rating => rating.itemId === filters.itemId);
+      conditions.push(eq(ratings.itemId, filters.itemId));
     }
     
     if (filters.noteId) {
-      ratings = ratings.filter(rating => rating.noteId === filters.noteId);
+      conditions.push(eq(ratings.noteId, filters.noteId));
     }
     
-    return ratings;
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    return await query;
   }
 
   async createRating(rating: InsertRating): Promise<Rating> {
-    const id = randomUUID();
-    const newRating: Rating = {
-      ...rating,
-      id,
-      createdAt: new Date(),
-    };
-    this.ratings.set(id, newRating);
+    const [newRating] = await db
+      .insert(ratings)
+      .values(rating)
+      .returning();
     return newRating;
   }
 
   // Stats
   async getStats(): Promise<{ activeListings: number; studyNotes: number; activeStudents: number }> {
-    const activeListings = Array.from(this.items.values()).filter(item => !item.sold).length;
-    const studyNotes = this.notes.size;
-    const activeStudents = this.users.size;
+    const [activeListingsResult] = await db
+      .select({ count: items.id })
+      .from(items)
+      .where(eq(items.sold, false));
+      
+    const [studyNotesResult] = await db
+      .select({ count: notes.id })
+      .from(notes);
+      
+    const [activeStudentsResult] = await db
+      .select({ count: users.id })
+      .from(users);
     
-    return { activeListings, studyNotes, activeStudents };
+    return {
+      activeListings: activeListingsResult?.count || 0,
+      studyNotes: studyNotesResult?.count || 0,
+      activeStudents: activeStudentsResult?.count || 0,
+    };
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

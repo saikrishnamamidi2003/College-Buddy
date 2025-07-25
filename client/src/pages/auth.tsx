@@ -100,7 +100,12 @@ export default function Auth() {
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter your email" {...field} />
+                          <Input 
+                            type="email" 
+                            placeholder="Enter your email" 
+                            autoComplete="email"
+                            {...field} 
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -162,7 +167,12 @@ export default function Auth() {
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
-                          <Input placeholder="john@college.edu" {...field} />
+                          <Input 
+                            type="email" 
+                            placeholder="john@college.edu" 
+                            autoComplete="email"
+                            {...field} 
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -191,9 +201,9 @@ export default function Auth() {
                           <FormControl>
                             <Input 
                               type="number" 
-                              placeholder="2024" 
+                              placeholder="1" 
                               {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || undefined)}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                             />
                           </FormControl>
                           <FormMessage />

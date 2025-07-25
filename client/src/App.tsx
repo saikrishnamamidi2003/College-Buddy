@@ -16,13 +16,13 @@ import Profile from "@/pages/profile";
 function Router() {
   return (
     <Switch>
-      <ProtectedRoute path="/" component={Home} />
-      <Route path="/auth" component={Auth} />
-      <ProtectedRoute path="/marketplace" component={Marketplace} />
-      <ProtectedRoute path="/notes" component={Notes} />
-      <ProtectedRoute path="/messages" component={Messages} />
-      <ProtectedRoute path="/profile" component={Profile} />
-      <Route component={NotFound} />
+      <ProtectedRoute path="/" component={() => <Home />} />
+      <Route path="/auth" component={() => <Auth />} />
+      <ProtectedRoute path="/marketplace" component={() => <Marketplace />} />
+      <ProtectedRoute path="/notes" component={() => <Notes />} />
+      <ProtectedRoute path="/messages" component={() => <Messages />} />
+      <ProtectedRoute path="/profile" component={() => <Profile />} />
+      <Route component={() => <NotFound />} />
     </Switch>
   );
 }

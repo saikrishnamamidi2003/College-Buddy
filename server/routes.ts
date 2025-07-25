@@ -100,7 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     ws.on('close', () => {
       // Remove from connected clients
-      for (const [userId, client] of connectedClients.entries()) {
+      for (const [userId, client] of Array.from(connectedClients.entries())) {
         if (client === ws) {
           connectedClients.delete(userId);
           break;

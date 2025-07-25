@@ -1,6 +1,6 @@
 import { type User, type InsertUser, type Item, type InsertItem, type Note, type InsertNote, type Message, type InsertMessage, type Rating, type InsertRating, users, items, notes, messages, ratings } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, like, ilike } from "drizzle-orm";
+import { eq, and, or, like, ilike, count } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -45,13 +45,13 @@ export interface IStorage {
     activeStudents: number;
   }>;
 
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 }
 
 const PostgresSessionStore = connectPg(session);
 
 export class DatabaseStorage implements IStorage {
-  public sessionStore: session.SessionStore;
+  public sessionStore: session.Store;
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({ 
@@ -147,7 +147,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteItem(id: string): Promise<boolean> {
     const result = await db.delete(items).where(eq(items.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Notes
@@ -204,7 +204,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteNote(id: string): Promise<boolean> {
     const result = await db.delete(notes).where(eq(notes.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Messages
@@ -245,7 +245,7 @@ export class DatabaseStorage implements IStorage {
       .update(messages)
       .set({ read: true })
       .where(eq(messages.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Ratings
@@ -289,22 +289,22 @@ export class DatabaseStorage implements IStorage {
   // Stats
   async getStats(): Promise<{ activeListings: number; studyNotes: number; activeStudents: number }> {
     const [activeListingsResult] = await db
-      .select({ count: items.id })
+      .select({ count: count() })
       .from(items)
       .where(eq(items.sold, false));
       
     const [studyNotesResult] = await db
-      .select({ count: notes.id })
+      .select({ count: count() })
       .from(notes);
       
     const [activeStudentsResult] = await db
-      .select({ count: users.id })
+      .select({ count: count() })
       .from(users);
     
     return {
-      activeListings: activeListingsResult?.count || 0,
-      studyNotes: studyNotesResult?.count || 0,
-      activeStudents: activeStudentsResult?.count || 0,
+      activeListings: Number(activeListingsResult?.count || 0),
+      studyNotes: Number(studyNotesResult?.count || 0),
+      activeStudents: Number(activeStudentsResult?.count || 0),
     };
   }
 }

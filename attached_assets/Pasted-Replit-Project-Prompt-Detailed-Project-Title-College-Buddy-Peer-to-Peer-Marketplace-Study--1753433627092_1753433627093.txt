@@ -1,0 +1,139 @@
+Replit Project Prompt (Detailed)
+🚀 Project Title:
+College Buddy – Peer-to-Peer Marketplace & Study Hub
+
+📌 Objective:
+Build a full-stack college-focused web application that allows students to:
+
+Buy/sell used textbooks, gadgets, and lab equipment
+
+Upload/share/download study notes (PDFs)
+
+Chat with buyers/sellers
+
+Rate sellers and note contributors
+
+View/manage their transactions and items
+
+🛠️ Tech Stack Requirements:
+🔹 Frontend:
+React.js (with functional components + hooks)
+
+Styling: Tailwind CSS or Bootstrap
+
+State Management: Context API or Redux (optional)
+
+Routing: React Router DOM
+
+File Upload: react-dropzone or standard file input
+
+🔹 Backend:
+Node.js with Express.js
+
+REST API
+
+Authentication with JWT
+
+File handling: Multer (for file uploads)
+
+Real-time chat: Socket.io (optional)
+
+🔹 Database:
+MongoDB using Mongoose
+
+Collections: Users, Items, Notes, Messages, Ratings
+
+🔹 Storage:
+Use Cloudinary or local /uploads/ folder on Replit for images/PDFs
+
+🔹 Authentication:
+JWT-based signup/login system
+
+Role-based access (admin, student)
+
+🧱 Core Features to Implement:
+✅ 1. User Auth & Profiles
+User registration and login (email + password)
+
+Store: Name, email, branch, year, password (hashed), rating
+
+Profile dashboard: View and manage posted items, uploaded notes
+
+✅ 2. Marketplace System
+Post an item with:
+
+Title, description, image(s), price, condition, department
+
+View all available listings
+
+Search and filter items by name, price range, department
+
+Mark item as sold
+
+✅ 3. Study Notes Hub
+Upload notes (PDF only)
+
+Subject, unit, tags
+
+View notes by subject and semester
+
+Download count tracker
+
+Notes rating (1 to 5 stars)
+
+✅ 4. Messaging (Optional for Replit)
+Send messages from buyer to seller
+
+One-on-one chat with:
+
+Item context or note context
+
+Real-time messaging using Socket.io OR simulate with polling
+
+✅ 5. Ratings & Reviews
+After a transaction or download:
+
+Allow user to rate seller or note uploader
+
+Display average rating on profile and listing
+
+✅ 6. Admin Panel (Optional)
+View flagged or spam content
+
+Remove inappropriate listings
+
+Manage registered users
+
+✅ 7. Notifications
+Show toast or popup notifications:
+
+When a chat message is received
+
+Item is marked sold
+
+Notes successfully uploaded
+
+📂 Project Folder Structure (Suggested)
+pgsql
+Copy
+Edit
+CollegeBuddy/
+├── client/ (React Frontend)
+│   ├── public/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── context/
+│   │   └── App.js
+│   └── tailwind.config.js
+│
+├── server/ (Node + Express Backend)
+│   ├── controllers/
+│   ├── models/
+│   ├── routes/
+│   ├── middleware/
+│   ├── uploads/
+│   └── server.js
+│
+├── .env
+└── README.md
